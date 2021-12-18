@@ -26,7 +26,7 @@ module Data.Ext.Zero
   ( (:+)((:+), Core), core, extra, _core, _extra, ext
 
   , Ext(..), ExtRep(..), Select(..), select2', Construct(..)
-  , core', extra'
+  , core', extra', _core'
   , bimap', bitraverse', bifoldMap'', withUnit
   ) where
 
@@ -84,7 +84,8 @@ select2'         :: Select rep => Ext rep c e -> Ext rep c' e'
 select2' a b f g = select2 f g a b
 
 
-select2Diff'             :: (Select rep, Select rep') => Ext rep c e -> Ext rep' c' e'
+select2Diff'             :: forall rep rep' c c' e e' r.
+                            (Select rep, Select rep') => Ext rep c e -> Ext rep' c' e'
                          -> (Ext NoExt c e   -> Ext NoExt   c' e' -> r)
                          -> (Ext NoExt c e   -> Ext WithExt c' e' -> r)
                          -> (Ext WithExt c e -> Ext NoExt   c' e' -> r)
@@ -105,9 +106,9 @@ instance Construct WithExt where
   construct = DefaultExt
 
 -- | Access the core data.
-_core' ::forall rep c e. Select rep => Ext rep c e -> c
-_core' = getConst . select (\(CoreOnly c)     -> Const c)
-                           (\(DefaultExt c _) -> Const c)
+_core' :: forall rep c e. Select rep => Ext rep c e -> c
+_core' = coerce . select (\(CoreOnly c)     -> Const c)
+                         (\(DefaultExt c _) -> Const c)
 {-# SPECIALIZE INLINE _core' :: Ext NoExt   c e -> c  #-}
 {-# SPECIALIZE INLINE _core' :: Ext WithExt c e -> c  #-}
 
@@ -175,16 +176,16 @@ bimap' f g x = construct (f . _core' $ x) (g . _extra' $ x)
 -- CoreOnly scenario. So the function 'g' better not inspect this
 -- value.
 bifoldMap'     :: (Select rep, Monoid m) => (c -> m) -> (e -> m) -> Ext rep c e -> m
-bifoldMap' f g = getConst . select (\(CoreOnly c)     -> Const $ f c <> g err)
-                                   (\(DefaultExt c e) -> Const $ f c <> g e)
+bifoldMap' f g = coerce . select (\(CoreOnly c)     -> Const $ f c <> g err)
+                                 (\(DefaultExt c e) -> Const $ f c <> g e)
   where
     err = error "Data.Ext.Zero: bifoldMap', applying g to an non-existing element!"
 
 -- | A version of bifoldmap that does not invent non-existing elements
 -- when applying them to a CoreOnly.
 bifoldMap''     :: (Select rep, Monoid m) => (c -> m) -> (e -> m) -> Ext rep c e -> m
-bifoldMap'' f g = getConst . select (\(CoreOnly c)     -> Const $ f c)
-                                    (\(DefaultExt c e) -> Const $ f c <> g e)
+bifoldMap'' f g = coerce . select (\(CoreOnly c)     -> Const $ f c)
+                                  (\(DefaultExt c e) -> Const $ f c <> g e)
 
 
 -- | Helper data type to implement bitraverse'
@@ -218,8 +219,8 @@ withUnit   :: forall proxy constraint rep c e r.
            -> (forall e'. constraint e' => c -> e' -> r)
            -> Ext rep c e
            -> r
-withUnit _ f = getConst . select (\(CoreOnly c)     -> Const $ f c ())
-                                 (\(DefaultExt c e) -> Const $ f c e)
+withUnit _ f = coerce . select (\(CoreOnly c)     -> Const $ f c ())
+                               (\(DefaultExt c e) -> Const $ f c e)
 
 
 instance (Show c, Show e, Select rep) => Show (Ext rep c e) where
@@ -247,14 +248,14 @@ instance (Read c, Read e, Construct rep) => Read (Ext rep c e) where
 instance (Eq c, Eq e, Select rep) => Eq (Ext rep c e) where
   {-# SPECIALIZE instance (Eq c, Eq e) => Eq (Ext NoExt   c e) #-}
   {-# SPECIALIZE instance (Eq c, Eq e) => Eq (Ext WithExt c e) #-}
-  a == b = getConst $ select2' a b
+  a == b = coerce $ select2' a b
     (\(CoreOnly c)     (CoreOnly c')      -> Const $ c == c')
     (\(DefaultExt c e) (DefaultExt c' e') -> Const $ c == c' && e == e')
 
 instance (Ord c, Ord e, Select rep) => Ord (Ext rep c e) where
   {-# SPECIALIZE instance (Ord c, Ord e) => Ord (Ext NoExt   c e) #-}
   {-# SPECIALIZE instance (Ord c, Ord e) => Ord (Ext WithExt c e) #-}
-  a `compare` b = getConst $ select2' a b
+  a `compare` b = coerce $ select2' a b
     (\(CoreOnly c)     (CoreOnly c')      -> Const $ c `compare` c')
     (\(DefaultExt c e) (DefaultExt c' e') -> Const $ c `compare` c' <> e `compare` e')
 
@@ -306,8 +307,8 @@ instance (Semigroup c, Semigroup e, Select rep) => Semigroup (Ext rep c e) where
 instance (NFData c, NFData e, Select rep) => NFData (Ext rep c e) where
   {-# SPECIALIZE instance (NFData c, NFData e) => NFData (Ext NoExt   c e) #-}
   {-# SPECIALIZE instance (NFData c, NFData e) => NFData (Ext WithExt c e) #-}
-  rnf = getConst . select (\(CoreOnly c)     -> Const $ rnf c)
-                          (\(DefaultExt c e) -> Const $ rnf (c,e))
+  rnf = coerce . select (\(CoreOnly c)     -> Const $ rnf c)
+                        (\(DefaultExt c e) -> Const $ rnf (c,e))
 
 
 instance (ToJSON core, ToJSON extra, Select rep) => ToJSON (Ext rep core extra) where
@@ -442,17 +443,23 @@ instance (Show c, Show e) => Show (c :+ e) where
 --   readPrec p = do x <- GHC.Read.readPrec @(Ext WithExt c e) p
 --                   pure $ MkExt x
 
-
 instance (Eq c, Eq e) => Eq (c :+ e) where
-  (MkExt a) == (MkExt b) = select2Diff' a b (==) (\_ _ -> False) (\_ _ -> False) (==)
+  -- (MkExt a) == (MkExt b) = select2Diff' a b (==) (\_ _ -> False) (\_ _ -> False) (==)
+  (MkExt a) == (MkExt b) = select2Diff' a b (==) (\_ _ -> err) (\_ _ -> err) (==)
+    where
+      err = error "we should not compare different (:+) for equality"
+
+instance (Ord c, Ord e) => Ord (c :+ e) where
+  (MkExt a) `compare` (MkExt b) = select2Diff' a b compare (\_ _ -> err) (\_ _ -> err) compare
+    where
+      err = error "we should not compare different (:+)"
+
+instance (NFData c, NFData e) => NFData (c :+ e) where
+  rnf (MkExt x) = rnf x
 
 
--- instance (Ord c, Ord e) => Ord (c :+ e) where
---   (MkExt a) `compare` (MkExt b) = a `compare` b
-
-
-
-
+instance (Arbitrary c, Arbitrary e) => Arbitrary (c :+ e) where
+  arbitrary = MkExt @WithExt <$> arbitrary
 
 
 

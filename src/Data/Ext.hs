@@ -15,5 +15,5 @@ module Data.Ext
   ( (:+)(..), core, extra, _core, _extra, ext
   ) where
 
--- import Data.Ext.Default
-import Data.Ext.ZeroCost
+import Data.Ext.Default
+-- import Data.Ext.ZeroCost

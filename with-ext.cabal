@@ -38,6 +38,7 @@ common setup
     , quickcheck-instances    >= 0.3
     , deepseq                 >= 1.1
     , bifunctors              >= 4.1
+    , random                  >= 1.2
 
   default-language:    Haskell2010
 
@@ -79,8 +80,12 @@ library
   exposed-modules:
     Data.Ext
     Data.Ext.Default
+    Data.Ext.Church
     Data.Ext.Zero
     Data.Ext.ZeroCost
+
+  build-depends: tasty-bench
+
 
 benchmark benchmarks
   import: setup
@@ -90,7 +95,8 @@ benchmark benchmarks
   main-is: Benchmarks.hs
   type: exitcode-stdio-1.0
 
-  other-modules: Benchmark.Util
+  -- other-modules: Benchmark.Util
 
   build-depends:
-      tasty-bench
+      with-ext
+    , tasty-bench        >= 0.3
