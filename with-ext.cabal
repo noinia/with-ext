@@ -68,6 +68,8 @@ common setup
     , FlexibleInstances
     , FlexibleContexts
     , MultiParamTypeClasses
+    , DerivingStrategies
+    , DerivingVia
 
 library
   import: setup

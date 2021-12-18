@@ -34,7 +34,9 @@ import Test.QuickCheck
 
 -- | Our Ext type that represents the core datatype core extended with extra
 -- information of type 'extra'.
-data core :+ extra = core :+ extra deriving (Show,Read,Eq,Ord,Bounded,Generic,NFData)
+data core :+ extra = core :+ extra
+  deriving stock (Show,Read,Eq,Ord,Bounded,Generic)
+  deriving anyclass (NFData)
 infixr 1 :+
 
 

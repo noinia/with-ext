@@ -2,14 +2,6 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC
-    -ddump-simpl
-    -dsuppress-idinfo
-    -dsuppress-coercions
-    -dsuppress-type-applications
-    -dsuppress-uniques
-    -dsuppress-module-prefixes
-#-}
 --------------------------------------------------------------------------------
 -- |
 -- Module      :  Data.Ext
